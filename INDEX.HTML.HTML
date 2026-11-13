@@ -1,0 +1,376 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Interactive Background</title>
+
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: #030712;
+    color: white;
+    font-family: Arial, sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+/* 3D BACKGROUND */
+#bg-canvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+}
+
+/* DARK OVERLAY */
+.overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse at center,
+        transparent 10%, rgba(3,7,18,.35) 100%),
+      linear-gradient(
+        180deg,
+        rgba(3,7,18,.15),
+        rgba(3,7,18,.65)
+      );
+}
+
+/* WEBSITE CONTENT */
+.content {
+    position: relative;
+    z-index: 2;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 30px;
+}
+
+.hero {
+    max-width: 850px;
+}
+
+.tag {
+    display: inline-block;
+    padding: 9px 18px;
+    border: 1px solid rgba(80,150,255,.4);
+    border-radius: 50px;
+    color: #72b8ff;
+    background: rgba(20,70,150,.15);
+    margin-bottom: 25px;
+    font-size: 13px;
+    letter-spacing: 2px;
+}
+
+h1 {
+    font-size: clamp(40px, 7vw, 85px);
+    line-height: 1.1;
+    margin-bottom: 22px;
+    font-weight: 800;
+}
+
+h1 span {
+    background: linear-gradient(
+        90deg,
+        #42a5ff,
+        #a78bfa,
+        #42e8ff
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+p {
+    color: #aab7cc;
+    font-size: 17px;
+    line-height: 1.8;
+    max-width: 600px;
+    margin: auto;
+}
+
+.buttons {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    flex-wrap: wrap;
+    margin-top: 35px;
+}
+
+.btn {
+    padding: 14px 27px;
+    border-radius: 9px;
+    text-decoration: none;
+    font-weight: bold;
+    transition: .3s;
+}
+
+.primary {
+    color: white;
+    background: linear-gradient(90deg,#2563eb,#7c3aed);
+    box-shadow: 0 0 25px rgba(59,130,246,.3);
+}
+
+.secondary {
+    border: 1px solid #52617a;
+    color: white;
+    background: rgba(255,255,255,.04);
+}
+
+.btn:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 0 25px rgba(59,130,246,.5);
+}
+
+@media(max-width:600px) {
+    p { font-size: 15px; }
+    .content { padding: 20px; }
+}
+
+@media(prefers-reduced-motion: reduce) {
+    .btn { transition: none; }
+}
+</style>
+</head>
+
+<body>
+
+<canvas id="bg-canvas"></canvas>
+<div class="overlay"></div>
+
+<main class="content">
+    <section class="hero">
+        <div class="tag">✦</div>
+
+       
+
+<script type="module">
+import * as THREE from
+'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js';
+
+const canvas = document.querySelector('#bg-canvas');
+
+const scene = new THREE.Scene();
+
+const camera = new THREE.PerspectiveCamera(
+    65,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    1000
+);
+
+camera.position.z = 90;
+
+const renderer = new THREE.WebGLRenderer({
+    canvas,
+    alpha: true,
+    antialias: true
+});
+
+renderer.setPixelRatio(
+    Math.min(window.devicePixelRatio, 1.5)
+);
+
+renderer.setSize(
+    window.innerWidth,
+    window.innerHeight
+);
+
+const COUNT = window.innerWidth < 600 ? 65 : 130;
+const MAX_DISTANCE = 19;
+
+const positions = new Float32Array(COUNT * 3);
+const original = [];
+const velocities = [];
+
+for (let i = 0; i < COUNT; i++) {
+    const x = (Math.random() - .5) * 120;
+    const y = (Math.random() - .5) * 80;
+    const z = (Math.random() - .5) * 55;
+
+    original.push(new THREE.Vector3(x, y, z));
+
+    velocities.push(new THREE.Vector3(
+        (Math.random() - .5) * .035,
+        (Math.random() - .5) * .035,
+        (Math.random() - .5) * .025
+    ));
+
+    positions[i * 3] = x;
+    positions[i * 3 + 1] = y;
+    positions[i * 3 + 2] = z;
+}
+
+// PARTICLES
+const particleGeometry = new THREE.BufferGeometry();
+particleGeometry.setAttribute(
+    'position',
+    new THREE.BufferAttribute(positions, 3)
+);
+
+const particleMaterial = new THREE.PointsMaterial({
+    color: 0x58a6ff,
+    size: 0.65,
+    transparent: true,
+    opacity: 0.9,
+    blending: THREE.AdditiveBlending
+});
+
+const particles = new THREE.Points(
+    particleGeometry,
+    particleMaterial
+);
+
+scene.add(particles);
+
+// CONNECTION LINES
+const linePositions = new Float32Array(
+    COUNT * COUNT * 6
+);
+
+const lineGeometry = new THREE.BufferGeometry();
+
+lineGeometry.setAttribute(
+    'position',
+    new THREE.BufferAttribute(linePositions, 3)
+);
+
+const lineMaterial = new THREE.LineBasicMaterial({
+    color: 0x397bff,
+    transparent: true,
+    opacity: 0.22,
+    blending: THREE.AdditiveBlending
+});
+
+const lines = new THREE.LineSegments(
+    lineGeometry,
+    lineMaterial
+);
+
+scene.add(lines);
+
+// MOUSE INTERACTION
+let mouseX = 0;
+let mouseY = 0;
+let targetX = 0;
+let targetY = 0;
+
+window.addEventListener('pointermove', (e) => {
+    targetX = (e.clientX / window.innerWidth - .5) * 2;
+    targetY = (e.clientY / window.innerHeight - .5) * 2;
+});
+
+window.addEventListener('pointerleave', () => {
+    targetX = 0;
+    targetY = 0;
+});
+
+// ANIMATION
+const clock = new THREE.Clock();
+
+function animate() {
+    requestAnimationFrame(animate);
+
+    const time = clock.getElapsedTime();
+
+    let lineIndex = 0;
+
+    const pos = particleGeometry.attributes.position.array;
+
+    for (let i = 0; i < COUNT; i++) {
+        const p = original[i];
+        const v = velocities[i];
+
+        p.add(v);
+
+        // Keep particles within the field
+        if (Math.abs(p.x) > 65) v.x *= -1;
+        if (Math.abs(p.y) > 45) v.y *= -1;
+        if (Math.abs(p.z) > 30) v.z *= -1;
+
+        // Smooth organic movement
+        const x = p.x + Math.sin(time + i) * .4;
+        const y = p.y + Math.cos(time * .7 + i) * .4;
+        const z = p.z;
+
+        pos[i * 3] = x;
+        pos[i * 3 + 1] = y;
+        pos[i * 3 + 2] = z;
+
+        // Connect nearby particles
+        for (let j = i + 1; j < COUNT; j++) {
+            const dx = x - pos[j * 3];
+            const dy = y - pos[j * 3 + 1];
+            const dz = z - pos[j * 3 + 2];
+
+            const distance = Math.sqrt(
+                dx * dx + dy * dy + dz * dz
+            );
+
+            if (distance < MAX_DISTANCE) {
+                linePositions[lineIndex++] = x;
+                linePositions[lineIndex++] = y;
+                linePositions[lineIndex++] = z;
+
+                linePositions[lineIndex++] = pos[j * 3];
+                linePositions[lineIndex++] = pos[j * 3 + 1];
+                linePositions[lineIndex++] = pos[j * 3 + 2];
+            }
+        }
+    }
+
+    particleGeometry.attributes.position.needsUpdate = true;
+
+    lineGeometry.setDrawRange(0, lineIndex / 3);
+    lineGeometry.attributes.position.needsUpdate = true;
+
+    // 3D mouse parallax
+    camera.position.x +=
+        (targetX * 5 - camera.position.x) * .025;
+
+    camera.position.y +=
+        (-targetY * 5 - camera.position.y) * .025;
+
+    camera.lookAt(0, 0, 0);
+
+    particles.rotation.y = Math.sin(time * .1) * .08;
+    lines.rotation.y = particles.rotation.y;
+
+    renderer.render(scene, camera);
+}
+
+animate();
+
+// RESPONSIVE RESIZE
+window.addEventListener('resize', () => {
+    camera.aspect =
+        window.innerWidth / window.innerHeight;
+
+    camera.updateProjectionMatrix();
+
+    renderer.setSize(
+        window.innerWidth,
+        window.innerHeight
+    );
+
+    renderer.setPixelRatio(
+        Math.min(window.devicePixelRatio, 1.5)
+    );
+});
+</script>
+
+</body>
+</html>
